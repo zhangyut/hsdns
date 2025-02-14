@@ -5,6 +5,8 @@ import Types
 import Data.Binary (Binary, get, put)
 import Data.Binary.Get (Get, getWord16be, getWord32be, getByteString)
 import Data.Binary.Put (Put, putWord16be, putWord32be, putByteString)
+import Data.ByteString
+import qualified Data.ByteString.Char8 as BS
 
 getDNSType :: Get DNSType
 getDNSType = do 
@@ -32,6 +34,32 @@ putDNSType typ = case typ of
     AAAA -> putWord16be 28
     Other typ -> putWord16be typ
 
+getDNSClass :: Get DNSClass
+getDNSClass = do
+    cls <- getWord16be
+    return $ case cls of
+        1 -> IN 
+        2 -> CS
+        3 -> CH
+        4 -> HS
+        _ -> OtherClass cls
+
+getDNSRdata :: DNSType -> Word16 -> Get DNSRData
+getDNSRdata typ rdlen = case typ of
+    A -> parseARecord
+    AAAA -> parseAAAARecord
+    CNAME -> parseCNAMERecord
+    NS -> parseNSRecord
+    MX -> parseMXRecord
+    TXT -> parseTXTRecord
+    SOA -> parseSOARecord
+    PTR -> parsePTRRecord
+    _ -> parseUnknownRecord
+    where
+        parseARecord = do
+            bytes <- getByteString 4
+            return $ ARecord (toIPv4 $ map fromIntegral (BS.unpack bytes))
+
 getDNSRecord :: Get DNSRecord
 getDNSRecord = do 
     name <- getDomainName
@@ -50,7 +78,7 @@ putDNSRecord (DNSRecord name typ cls ttl rdata) = do
     putWrod32be ttl 
     putDNSRData rdata 
 
-getDomainName :: GetByteString
+getDomainName :: Get ByteString
 getDomainName = do
     len <- getWord8
     if len == 0

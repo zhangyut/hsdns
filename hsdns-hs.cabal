@@ -70,7 +70,7 @@ executable hsdns-hs
     build-depends:    base ^>=4.17.2.1,
                       binary >= 0.8.9.1,
                       bytestring >= 0.11.5.3,
-                      ip
+                      network-data
 
     -- Directories containing source files.
     hs-source-dirs:   app,src
