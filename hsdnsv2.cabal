@@ -131,4 +131,6 @@ test-suite hsdnsv2-test
     -- Test dependencies.
     build-depends:
         base ^>=4.20.0.0,
+        bytestring >= 0.11.5.3,
+        binary >= 0.8.9.1,
         hsdnsv2
