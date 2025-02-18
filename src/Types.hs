@@ -4,7 +4,6 @@ module Types where
 import Data.Word (Word8, Word16, Word32)
 import Data.ByteString (ByteString)
 import Data.IP
-import Data.IPv6
 import qualified Data.ByteString.Char8 as BS
 
 data DNSType
@@ -79,4 +78,3 @@ data DNSMessage = DNSMessage
     , authorities :: [DNSRecord]
     , additionals :: [DNSRecord]
     } deriving (Show, Eq)
-

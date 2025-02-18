@@ -2,11 +2,32 @@
 module Serialization where
 
 import Types
-import Data.Binary (Binary, get, put)
+import Data.Binary (Binary, get, put, Word16, Word8)
 import Data.Binary.Get (Get, getWord16be, getWord32be, getByteString)
 import Data.Binary.Put (Put, putWord16be, putWord32be, putByteString)
 import Data.ByteString
-import qualified Data.ByteString.Char8 as BS
+--import qualified Data.ByteString.Char8 as BS
+import Data.IP
+
+import Data.Bits (shiftR,shiftL, (.&.))
+import Data.ByteString (ByteString, cons)
+import qualified Data.ByteString as BS
+import Data.IP (IPv4, IPv6, toIPv4, toIPv6)
+import Data.Binary.Get (
+  Get, getWord8, getWord16be, getWord32be,
+  getByteString, bytesRead, skip)
+
+
+
+getDomainName :: Get ByteString
+getDomainName = do
+  len <- getWord8
+  if len == 0
+    then return ""
+    else do
+      label <- getByteString (fromIntegral len)
+      rest <- getDomainName
+      return $ label `BS.append` "." `BS.append` rest
 
 getDNSType :: Get DNSType
 getDNSType = do 
@@ -44,8 +65,8 @@ getDNSClass = do
         4 -> HS
         _ -> OtherClass cls
 
-getDNSRdata :: DNSType -> Word16 -> Get DNSRData
-getDNSRdata typ rdlen = case typ of
+getDNSRData :: DNSType -> Word16 -> Get DNSRData
+getDNSRData typ rdlen = case typ of
     A -> parseARecord
     AAAA -> parseAAAARecord
     CNAME -> parseCNAMERecord
@@ -58,7 +79,30 @@ getDNSRdata typ rdlen = case typ of
     where
         parseARecord = do
             bytes <- getByteString 4
-            return $ ARecord (toIPv4 $ map fromIntegral (BS.unpack bytes))
+            return $ ARecord (toIPv4 $ Prelude.map fromIntegral (BS.unpack bytes))
+        parseAAAARecord = do
+          bytes <- getByteString 16
+          return $ AAAARecord (toIPv6 $ Prelude.map fromIntegral (BS.unpack bytes))
+        parseCNAMERecord = CNAMERecord <$> getDomainName
+        parseNSRecord = NSRecord <$> getDomainName
+        parsePTRRecord = PTRRecord <$> getDomainName
+        parseMXRecord = do
+          preference <- getWord16be
+          server <- getDomainName
+          return $ MXRecord preference server
+        parseTXTRecord = do
+          txt <- getByteString (fromIntegral rdlen)
+          return $ TXTRecord txt
+        parseSOARecord = do
+          mname <- getDomainName
+          rname <- getDomainName
+          serial <- getWord32be
+          refresh <- getWord32be
+          retry <- getWord32be
+          expire <- getWord32be
+          minimum <- getWord32be
+          return $ SOARecord (SOAData mname rname serial refresh retry expire minimum)
+        parseUnknownRecord = UnknownRecord <$> getByteString (fromIntegral rdlen)
 
 getDNSRecord :: Get DNSRecord
 getDNSRecord = do 
@@ -69,30 +113,4 @@ getDNSRecord = do
     rdlen <- getWord16be
     rdata <- getDNSRData typ rdlen
     return $ DNSRecord name typ cls ttl rdata
-
-putDNSRecord :: DNSRecord -> Put
-putDNSRecord (DNSRecord name typ cls ttl rdata) = do 
-    putDomainName name
-    putDNSType typ 
-    putDNSClass cla 
-    putWrod32be ttl 
-    putDNSRData rdata 
-
-getDomainName :: Get ByteString
-getDomainName = do
-    len <- getWord8
-    if len == 0
-        then return ""
-        else do
-            label <- getByteString (fromIntegral len)
-            rest <- getDomainName
-            return $ label `BS.append` "." `BS.append` rest
-
-putDomainName :: ByteString -> Put
-putDomainName domain = mapM_ putLabel (BS.split '.' domain)
-    where
-        putLabel label = do
-            putWord8 (fromIntegral $ BS.length label)
-            putByteString label
-        putWord8 = put . fromIntegral
 
