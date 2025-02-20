@@ -16,8 +16,11 @@ parseAllType input = case runGetOrFail getDNSType input of
 
 main :: IO ()
 main = do
+    -- test getDNSType 
     let input = "\x00\x01\x00\x02\x00\x03\x00\x05\x00\x06"
     parseAllType (BS.pack input)
+
+    -- test getDomainName
     let domain = BS1.pack [7,101,120,97,109,112,108,101,3,99,111,109,0]
     let result = runGet getDomainName domain
     print result
