@@ -17,8 +17,6 @@ import Data.Binary.Get (
   Get, getWord8, getWord16be, getWord32be,
   getByteString, bytesRead, skip)
 
-
-
 getDomainName :: Get ByteString
 getDomainName = do
   len <- getWord8
