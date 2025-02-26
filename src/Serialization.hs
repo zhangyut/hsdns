@@ -6,7 +6,7 @@ import Data.Binary (Binary, get, put, Word16, Word8)
 import Data.Binary.Get (Get, getWord16be, getWord32be, getByteString)
 import Data.Binary.Put (Put, putWord16be, putWord32be, putByteString)
 import Data.ByteString
---import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Char8 as BS1
 import Data.IP
 
 import Data.Bits (shiftR,shiftL, (.&.))
@@ -80,9 +80,8 @@ getDNSRData typ rdlen = case typ of
             bytes <- getByteString 4
             return $ ARecord (toIPv4 $ Prelude.map fromIntegral (BS.unpack bytes))
         parseAAAARecord = do
-          bytes <- getByteString 16
-          --return $ AAAARecord (toIPv6 $ Prelude.map fromIntegral (BS.unpack bytes))
-          return $ AAAARecord $ ((read (BS1.unpack bytes)) :: IPv6)
+            bytes <- getByteString 16
+            return $ AAAARecord (toIPv6b $ Prelude.map fromIntegral (BS.unpack bytes))
         parseCNAMERecord = CNAMERecord <$> getDomainName
         parseNSRecord = NSRecord <$> getDomainName
         parsePTRRecord = PTRRecord <$> getDomainName

@@ -46,10 +46,9 @@ testA = runParser A 4 (BS.pack [0x7F, 0x00, 0x00, 0x01]) expected
 
 -- 测试AAAA记录解析
 testAAAA :: Test
-testAAAA = runParser AAAA 16 (BS.pack [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]) expected
+testAAAA = runParser AAAA 16 (BS.pack [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01]) expected
     where
-        --expected = AAAARecord (toIPv6w (0x0,0x0,0x0,0x1))
-        expected = AAAARecord $ (read "00:00:00:00:00:00:00:01" :: IPv6)
+        expected = AAAARecord (toIPv6w (0x0,0x0,0x0,0x1))
 
 -- 测试CNAME记录解析
 testCNAME :: Test
