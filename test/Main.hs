@@ -13,24 +13,9 @@ import qualified Data.ByteString as BS3
 import Data.Word (Word16, Word32)
 import Data.IP
 
-parseAllType :: BS1.ByteString -> IO()
-parseAllType input = case runGetOrFail getDNSType input of
-        Left (_,_,err) -> putStrLn $ "解析失败: " ++ err
-        Right (remaining,_,typ) -> do 
-          putStrLn $ "1解析成功:" ++ show typ
-          parseAllType remaining
-
--- 定义测试用例
-tests :: Test
-tests = TestList
-    [ testA
-    , testAAAA
-    , testCNAME
-    , testMX
-    , testSOA
-    , testTXT
-    , testUnknown
-    ]
+testGetDNSClass :: BS.ByteString -> DNSClass -> Test
+testGetDNSClass input expected = TestCase $
+  assertEqual ("应解析为 " ++ show expected) expected (runGet getDNSClass input)
 
 -- 辅助函数：运行解析器并比较结果
 runParser typ rdlen bytes expected = TestCase $
@@ -88,13 +73,62 @@ testUnknown = runParser (Other 999) 3 (BS.pack [0xAA, 0xBB, 0xCC]) expected
     where
         expected = UnknownRecord (BS3.pack [0xAA, 0xBB, 0xCC])
 
+testGetDNSType :: BS.ByteString -> DNSType -> Test
+testGetDNSType input expected = TestCase $
+  assertEqual ("输入" ++ show input ++ " 应解析为 " ++ show expected)
+    expected
+    (runGet getDNSType input)
+
+-- 测试空域名
+testEmptyDomain :: Test
+testEmptyDomain = 
+  runGet getDomainName (BS.pack [0x00]) ~?= BS3.empty
+
+
+-- 测试 www
+testSingleLabel :: Test
+testSingleLabel = 
+  let 
+    input = BS.pack [0x03, 0x77, 0x77, 0x77, 0x00]
+    expected = BS3.pack [0x77, 0x77, 0x77, 0x2E]
+  in
+    runGet getDomainName input ~?= expected
+
+-- 定义测试用例
+tests :: Test
+tests = TestList
+    [ testA
+    , testAAAA
+    , testCNAME
+    , testMX
+    , testSOA
+    , testTXT
+    , testUnknown
+    , testGetDNSClass (BS.pack [0x00, 0x01]) IN
+    , testGetDNSClass (BS.pack [0x00, 0x02]) CS 
+    , testGetDNSClass (BS.pack [0x00, 0x03]) CH
+    , testGetDNSClass (BS.pack [0x00, 0x04]) HS
+    , testGetDNSClass (BS.pack [0x00, 0x05]) (OtherClass 5)
+    , testGetDNSClass (BS.pack [0xFF, 0xFF]) (OtherClass 0xFFFF)
+    , testGetDNSType (BS.pack [0x00, 0x01]) A
+    , testGetDNSType (BS.pack [0x00, 0x02]) NS
+    , testGetDNSType (BS.pack [0x00, 0x05]) CNAME
+    , testGetDNSType (BS.pack [0x00, 0x06]) SOA
+    , testGetDNSType (BS.pack [0x00, 0x0C]) PTR
+    , testGetDNSType (BS.pack [0x00, 0x0F]) MX
+    , testGetDNSType (BS.pack [0x00, 0x10]) TXT
+    , testGetDNSType (BS.pack [0x00, 0x1C]) AAAA
+    , testGetDNSType (BS.pack [0x00, 0x00]) (Other 0)
+    , testGetDNSType (BS.pack [0x00, 0x03]) (Other 3)
+    , testGetDNSType (BS.pack [0x03, 0xE7]) (Other 999)
+    , testGetDNSType (BS.pack [0xFF, 0xFF]) (Other 0xFFFF)
+    , testEmptyDomain
+    , testSingleLabel
+    ]
+
 
 main :: IO ()
 main = do
-    -- test getDNSType 
-    let input = "\x00\x01\x00\x02\x00\x03\x00\x05\x00\x06"
-    parseAllType (BS1.pack input)
-
     -- test getDomainName
     let domain = BS.pack [7,101,120,97,109,112,108,101,3,99,111,109,0]
     let result = runGet getDomainName domain
