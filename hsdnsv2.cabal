@@ -135,4 +135,6 @@ test-suite hsdnsv2-test
         binary >= 0.8.9.1,
         iproute,
         HUnit >= 1.6.2.0,
+        tasty,
+        tasty-hunit,
         hsdnsv2

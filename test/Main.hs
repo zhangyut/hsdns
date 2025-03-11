@@ -12,6 +12,8 @@ import qualified Data.ByteString.Char8 as BS2
 import qualified Data.ByteString as BS3
 import Data.Word (Word16, Word32)
 import Data.IP
+import qualified Test.Tasty as TT
+import qualified Test.Tasty.HUnit as TTH
 
 testGetDNSClass :: BS.ByteString -> DNSClass -> Test
 testGetDNSClass input expected = TestCase $
@@ -126,6 +128,38 @@ tests = TestList
     , testSingleLabel
     ]
 
+testSuite :: TT.TestTree
+testSuite = TT.testGroup "DNSRecord Parser"
+  [ testARecord
+--  , testCNAMERecord
+--  , testMXRecord
+--  , testTXTRecord
+--  , testEmptyName
+--  , testInvalidLength
+  ]
+
+domainEncode :: String -> ByteString
+domainEncode "example.com" = BS1.pack [7,0x65,0x78,0x61,0x6D,0x70,0x6C,0x65,3,0x63,0x6F,0x6D,0x00]
+domainEncode _ = error "Unimplemented domain encoder"
+
+testARecord :: TT.TestTree
+testARecord = TTH.testCase "Parse A record" $ do
+  let input = domainEncode "example.com"
+      <> BS3.pack [0x00, 0x01]
+      <> BS3.pack [0x00, 0x01]
+      <> BS3.pack [0x00, 0x00, 0x0E, 0x10]
+      <> BS3.pack [0x00, 0x04]
+      <> BS3.pack [0xC0, 0x00, 0x02, 0x01]
+
+  let expected = DNSRecord {
+      recordName = domainEncode "example.com"
+      , recordType = A
+      , recordClass = IN
+      , recordTTL = 3600
+      , recordData = ARecord (toIPv4 [127,0,0,1])
+  }
+  parsed <- runGet getDNSRecord input
+  parsed @?= expected
 
 main :: IO ()
 main = do
