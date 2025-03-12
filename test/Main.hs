@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import qualified Data.ByteString.Lazy.Char8 as BS1
@@ -12,8 +13,6 @@ import qualified Data.ByteString.Char8 as BS2
 import qualified Data.ByteString as BS3
 import Data.Word (Word16, Word32)
 import Data.IP
-import qualified Test.Tasty as TT
-import qualified Test.Tasty.HUnit as TTH
 
 testGetDNSClass :: BS.ByteString -> DNSClass -> Test
 testGetDNSClass input expected = TestCase $
@@ -128,38 +127,56 @@ tests = TestList
     , testSingleLabel
     ]
 
-testSuite :: TT.TestTree
-testSuite = TT.testGroup "DNSRecord Parser"
-  [ testARecord
---  , testCNAMERecord
---  , testMXRecord
---  , testTXTRecord
---  , testEmptyName
---  , testInvalidLength
+assertParseSuccess :: String -> BS.ByteString -> DNSRecord -> Assertion
+assertParseSuccess msg bytes expected = case runGetOrFail getDNSRecord bytes of
+  Left (_,_,err) -> assertFailure $ "Parse failed: " ++ err
+  Right (_,_,actual) -> assertEqual msg expected actual
+
+testARecord :: Test
+testARecord = TestCase $ do
+  let bytes = BS.concat
+        [ "\7example\3com\0"     -- example.com
+        , "\0\1"                 -- Type A
+        , "\0\1"                 -- Class IN
+        , "\0\0\0\xE1\0"         -- TTL 3600
+        , "\0\x04"               -- RDLength 4
+        , "\xC0\0\x02\x01"       -- 192.0.2.1
+        ]
+      expected = DNSRecord
+        { recordName = "example.com."
+        , recordType = A
+        , recordClass = IN
+        , recordTTL = 3600
+        , recordData = ARecord (toIPv4 [192, 0, 2, 1])
+        }
+  assertParseSuccess "A record parse" bytes expected
+
+testAAAARecord :: Test
+testAAAARecord = TestCase $ do
+  let bytes = BS.concat
+        [ "\10ipv6example\3org\0"  -- ipv6example.org
+        , "\0\x1C"                 -- Type AAAA
+        , "\0\1"                   -- Class IN
+        , "\x12\x34\x56\x78"       -- TTL 0x12345678
+        , "\0\x10"                 -- RDLength 16
+        , BS.pack [0x20,0x01,0x0d,0xb8,0,0,0,0,0,0,0,0,0,0,0,1]  -- 2001:db8::1
+        ]
+      expected = DNSRecord
+        { recordName = "ipv6example.org."
+        , recordType = AAAA
+        , recordClass = IN
+        , recordTTL = 0x12345678
+        , recordData = AAAARecord (toIPv6b [0x20,0x01,0x0d,0xb8,0,0,0,0,0,0,0,0,0,0,0,1])
+        }
+  assertParseSuccess "AAAA record parse" bytes expected
+
+allRecordTests :: Test
+allRecordTests = TestList
+  [ TestLabel "A Record Test" testARecord 
+  , TestLabel "AAAA Record Test" testAAAARecord
   ]
 
-domainEncode :: String -> ByteString
-domainEncode "example.com" = BS1.pack [7,0x65,0x78,0x61,0x6D,0x70,0x6C,0x65,3,0x63,0x6F,0x6D,0x00]
-domainEncode _ = error "Unimplemented domain encoder"
 
-testARecord :: TT.TestTree
-testARecord = TTH.testCase "Parse A record" $ do
-  let input = domainEncode "example.com"
-      <> BS3.pack [0x00, 0x01]
-      <> BS3.pack [0x00, 0x01]
-      <> BS3.pack [0x00, 0x00, 0x0E, 0x10]
-      <> BS3.pack [0x00, 0x04]
-      <> BS3.pack [0xC0, 0x00, 0x02, 0x01]
-
-  let expected = DNSRecord {
-      recordName = domainEncode "example.com"
-      , recordType = A
-      , recordClass = IN
-      , recordTTL = 3600
-      , recordData = ARecord (toIPv4 [127,0,0,1])
-  }
-  parsed <- runGet getDNSRecord input
-  parsed @?= expected
 
 main :: IO ()
 main = do
@@ -169,5 +186,8 @@ main = do
     print result
 
     counts  <- runTestTT tests
+    print counts
+
+    counts  <- runTestTT allRecordTests
     print counts
           
