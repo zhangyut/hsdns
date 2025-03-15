@@ -138,7 +138,7 @@ testARecord = TestCase $ do
         [ "\7example\3com\0"     -- example.com
         , "\0\1"                 -- Type A
         , "\0\1"                 -- Class IN
-        , "\0\0\0\xE1\0"         -- TTL 3600
+        , "\0\0\x0E\x10"         -- TTL 3600
         , "\0\x04"               -- RDLength 4
         , "\xC0\0\x02\x01"       -- 192.0.2.1
         ]
@@ -154,7 +154,7 @@ testARecord = TestCase $ do
 testAAAARecord :: Test
 testAAAARecord = TestCase $ do
   let bytes = BS.concat
-        [ "\10ipv6example\3org\0"  -- ipv6example.org
+        [ "\11ipv6example\3org\0"  -- ipv6example.org
         , "\0\x1C"                 -- Type AAAA
         , "\0\1"                   -- Class IN
         , "\x12\x34\x56\x78"       -- TTL 0x12345678
