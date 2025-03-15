@@ -6,7 +6,6 @@ import Data.Binary (Binary, get, put, Word16, Word8)
 import Data.Binary.Get (Get, getWord16be, getWord32be, getByteString)
 import Data.Binary.Put (Put, putWord16be, putWord32be, putByteString)
 import Data.ByteString
-import qualified Data.ByteString.Char8 as BS1
 import Data.IP
 
 import Data.Bits (shiftR,shiftL, (.&.))
@@ -17,6 +16,7 @@ import Data.IP (IPv4, IPv6, toIPv4, toIPv6)
 import Data.Binary.Get (
   Get, getWord8, getWord16be, getWord32be,
   getByteString, bytesRead, skip)
+import Control.Monad (replicateM)
 
 getDomainName :: Get ByteString
 getDomainName = do
@@ -113,3 +113,28 @@ getDNSRecord = do
     rdata <- getDNSRData typ rdlen
     return $ DNSRecord name typ cls ttl rdata
 
+getDNSQuestion :: Get DNSQuestion
+getDNSQuestion = do
+    name <- getDomainName
+    typ <- getDNSType
+    cls <- getDNSClass
+    return $ DNSQuestion name typ cls
+
+getDNSHeader :: Get DNSHeader
+getDNSHeader = do
+    qid <- getWord16be
+    flags <- getWord16be
+    qdcount <- getWord16be
+    ancount <- getWord16be
+    nscount <- getWord16be
+    arcount <- getWord16be
+    return $ DNSHeader qid flags qdcount ancount nscount arcount
+
+getDNSMessage :: Get DNSMessage
+getDNSMessage = do
+    header <- getDNSHeader
+    questions <- replicateM (fromIntegral $ headerQDCount header) getDNSQuestion
+    answers <- replicateM (fromIntegral $ headerANCount header) getDNSRecord
+    authorities <- replicateM (fromIntegral $ headerNSCount header) getDNSRecord
+    additionals <- replicateM (fromIntegral $ headerARCount header) getDNSRecord
+    return $ DNSMessage header questions answers authorities additionals
