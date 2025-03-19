@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import qualified Data.ByteString.Lazy.Char8 as BS1
-import qualified Data.ByteString.Lazy as BS
 import Serialization
 import Data.Binary 
 import Data.Binary.Get
@@ -11,6 +9,7 @@ import Test.HUnit
 import Data.Binary.Get (runGet)
 import qualified Data.ByteString.Char8 as BS2
 import qualified Data.ByteString as BS3
+import qualified Data.ByteString.Lazy as BS
 import Data.Word (Word16, Word32)
 import Data.IP
 
@@ -129,7 +128,7 @@ tests = TestList
 
 assertParseSuccess :: String -> BS.ByteString -> DNSRecord -> Assertion
 assertParseSuccess msg bytes expected = case runGetOrFail getDNSRecord bytes of
-  Left (_,_,err) -> assertFailure $ "Parse failed: " ++ err
+  Left (_,_,err) -> assertFailure $ ("Parse failed: " ++ err)
   Right (_,_,actual) -> assertEqual msg expected actual
 
 testARecord :: Test
@@ -138,7 +137,7 @@ testARecord = TestCase $ do
         [ "\7example\3com\0"     -- example.com
         , "\0\1"                 -- Type A
         , "\0\1"                 -- Class IN
-        , "\0\0\0\xE1\0"         -- TTL 3600
+        , "\0\0\x0E\x10"         -- TTL 3600
         , "\0\x04"               -- RDLength 4
         , "\xC0\0\x02\x01"       -- 192.0.2.1
         ]
@@ -154,7 +153,7 @@ testARecord = TestCase $ do
 testAAAARecord :: Test
 testAAAARecord = TestCase $ do
   let bytes = BS.concat
-        [ "\10ipv6example\3org\0"  -- ipv6example.org
+        [ "\11ipv6example\3org\0"  -- ipv6example.org
         , "\0\x1C"                 -- Type AAAA
         , "\0\1"                   -- Class IN
         , "\x12\x34\x56\x78"       -- TTL 0x12345678
@@ -176,7 +175,31 @@ allRecordTests = TestList
   , TestLabel "AAAA Record Test" testAAAARecord
   ]
 
+testGetDNSQuestion :: Test
+testGetDNSQuestion = TestCase $ do
+  let input = BS.pack [7, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 3, 0x63, 0x6F, 0x6D, 0, 0x00, 0x01,0x00, 0x01]
+      expected = DNSQuestion (BS2.pack "example.com.") A IN
+  case runGetOrFail getDNSQuestion input of
+    Left (_,_,err) -> assertFailure $ ("Parse failed: " ++ err)
+    Right (_,_,q) -> assertEqual "Should parse DNS question" expected q
 
+testGetDNSMessage :: Test
+testGetDNSMessage = TestCase $ do
+  let header = BS.pack [0x12, 0x34, 0x01, 0x00, 0x00, 0x01,0x00,0x00,0x00,0x00,0x00,0x00]
+      question = BS.pack [7,0x65,0x78,0x61,0x6D,0x70,0x6C,0x65,3,0x63,0x6F,0x6D,0,0x00,0x01,0x00,0x01]
+      input = header `BS.append` question
+      expectedHeader = DNSHeader 0x1234 0x0100 1 0 0 0
+      expectedQuestion = DNSQuestion (BS2.pack "example.com.") A IN
+      expected = DNSMessage expectedHeader [expectedQuestion] [] [] []
+  case runGetOrFail getDNSMessage input of
+    Left (_,_,err) -> assertFailure $ "Parse failed: " ++ err
+    Right (_,_,msg) -> assertEqual "Should parse full DNS message" expected msg
+
+dnsMsgTests :: Test
+dnsMsgTests = TestList 
+  [ TestLabel "Question" testGetDNSQuestion
+  , TestLabel "Message" testGetDNSMessage
+  ]
 
 main :: IO ()
 main = do
@@ -189,5 +212,8 @@ main = do
     print counts
 
     counts  <- runTestTT allRecordTests
+    print counts
+
+    counts  <- runTestTT dnsMsgTests
     print counts
           
