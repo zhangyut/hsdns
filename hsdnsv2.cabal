@@ -58,7 +58,7 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Types,Serialization
+    exposed-modules:  Types,Serialization,Net
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -70,6 +70,10 @@ library
     build-depends:    base ^>=4.20.0.0,
                       binary >= 0.8.9.1,
                       bytestring >= 0.11.5.3,
+                      containers >= 0.6,
+                      stm >= 2.5,
+                      network >= 3.1.2,
+                      async >= 2.2,
                       iproute
                       
 
@@ -98,6 +102,11 @@ executable hsdnsv2
         base ^>=4.20.0.0,
         bytestring >= 0.11.5.3,
         binary >= 0.8.9.1,
+        network >= 3.1.2,
+        async >= 2.2,
+        stm >= 2.5,
+        containers >= 0.6,
+        --binary >= 0.11,
         hsdnsv2
 
     -- Directories containing source files.
