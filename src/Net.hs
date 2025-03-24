@@ -4,7 +4,7 @@ module Net where
 import Network.Socket hiding (recvFrom, sendTo)
 import Network.Socket.ByteString (recvFrom, sendTo)
 import Data.Binary (decode,encode)
-import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as Lazy
 import Control.Monad (forever)
 import GHC.Generics (Generic)
 import Data.Word (Word16)
@@ -12,10 +12,11 @@ import qualified Data.Map as M
 import Control.Concurrent.STM
 import Control.Concurrent.Async 
 import Control.Monad
+import Data.List (sortOn)
 
 import Types
 
-type DNSPacket = ByteString
+type DNSPacket = Lazy.ByteString
 
 data DNSMiddleware = DNSMiddleware {
   middlewarePriority :: Int,
@@ -44,8 +45,9 @@ addMiddleware state middleware = atomically $ do
 
 receiver :: Socket -> TQueue (Socket, SockAddr, DNSPacket) -> IO ()
 receiver sock queue = forever $ do
-  (pkt, addr) <- recvFrom sock 4096
-  atomically $ writeTQueue queue (sock, addr, pkt)
+  (strictPkt, addr) <- Network.Socket.ByteString.recvFrom sock 4096
+  let lazyPkt = Lazy.fromStrict strictPkt
+  atomically $ writeTQueue queue (sock, addr, lazyPkt)
 
 processingPipeline :: FrameworkState -> IO ()
 processingPipeline state = forever $ do
@@ -61,13 +63,16 @@ applyMiddlewares ms pkt = foldM applyMiddleware pkt (sortOn middlewarePriority m
     applyMiddleware pkt' m = middlewareHandler m pkt'
 
 sendResponse :: Socket -> SockAddr -> DNSPacket -> IO ()
-sendResponse sock addr pkt = sendTo sock (encode pkt) addr
+sendResponse sock addr pkt = do
+  let encodedStrict = Lazy.toStrict (encode pkt)
+  _ <- Network.Socket.ByteString.sendTo sock encodedStrict addr
+  return ()
 
 runServer :: String -> Int -> [DNSMiddleware] -> IO ()
 runServer host port initialMiddlewares = withSocketsDo $ do
   addr <- head <$> getAddrInfo Nothing (Just host) (Just $ show port)
   sock <- socket (addrFamily addr) Datagram defaultProtocol
-  fdSocket sock (addrAddress addr)
+  bind sock (addrAddress addr)
 
   state <- newFrameworkState
   mapM_ (addMiddleware state) initialMiddlewares

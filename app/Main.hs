@@ -11,7 +11,7 @@ import Data.Word (Word16)
 import qualified Data.Map as M
 import Control.Concurrent.STM
 import Net
-import Types
+import qualified Types as T
 
 -- 定义简单的DNS消息结构
 data DNSMessage = DNSMessage {
