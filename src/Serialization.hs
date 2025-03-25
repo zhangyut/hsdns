@@ -18,6 +18,23 @@ import Data.Binary.Get (
   getByteString, bytesRead, skip)
 import Control.Monad (replicateM)
 
+instance Binary DNSHeader where
+  put h = do
+    putWord16be (headerId h)
+    putWord16be (headerFlags h)
+    putWord16be (headerQDCount h)
+    putWord16be (headerANCount h)
+    putWord16be (headerNSCount h)
+    putWord16be (headerARCount h)
+  
+  get = DNSHeader
+    <$> getWord16be
+    <*> getWord16be
+    <*> getWord16be
+    <*> getWord16be
+    <*> getWord16be
+    <*> getWord16be
+
 getDomainName :: Get ByteString
 getDomainName = do
   len <- getWord8

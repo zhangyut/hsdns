@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Types where
 
 import Data.Word (Word8, Word16, Word32)
 import Data.ByteString (ByteString)
 import Data.IP
 import qualified Data.ByteString.Char8 as BS
+import Data.Binary (Binary(..))
+import GHC.Generics (Generic)
 
 data DNSType
     = A
@@ -63,13 +66,13 @@ data DNSHeader = DNSHeader
     , headerANCount :: Word16
     , headerNSCount :: Word16
     , headerARCount :: Word16
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
 
 data DNSQuestion = DNSQuestion
     { questionName :: ByteString
     , questionType :: DNSType
     , questionClass :: DNSClass
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
 
 data DNSMessage = DNSMessage
     { header :: DNSHeader
@@ -77,4 +80,7 @@ data DNSMessage = DNSMessage
     , answers :: [DNSRecord]
     , authorities :: [DNSRecord]
     , additionals :: [DNSRecord]
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
+instance Binary DNSMessage
+instance Binary DNSHeader
+instance Binary DNSQuestion

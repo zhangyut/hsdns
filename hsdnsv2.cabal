@@ -107,6 +107,7 @@ executable hsdnsv2
         stm >= 2.5,
         containers >= 0.6,
         --binary >= 0.11,
+        iproute,
         hsdnsv2
 
     -- Directories containing source files.
